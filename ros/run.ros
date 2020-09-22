@@ -1,0 +1,62 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#|
+exec ros -Q -- $0 "$@"
+|#
+(progn ;;init forms
+  (ros:ensure-asdf)
+  #+quicklisp(ql:quickload '(:trivial-hashtable-serialize
+							 :mylib
+							 :cl-spam-detector
+							 :cl-ppcre)
+						   :silent t)
+  )
+
+(defpackage :ros.script.run.3809723053
+  (:use :cl))
+(in-package :ros.script.run.3809723053)
+
+(defun main (&rest argv)
+  (declare (ignorable argv))
+  (handler-case
+	  ;; todo: calling (main ham-path spam-path filepath)y
+	  (let ((help-msg (format nil
+							  "~{~A~%~}"
+							  '("cmds:"
+								"	learn: <type> <ham-filepath> <spam-filepath> [filepath-lst...]"
+								"	score : <ham-filepath> <spam-filepath> <filepath>"))))
+		(cond ((string= (car argv) "learn")
+			   (cl-spam-detector:learning (nth 1 argv) ;type
+											(nth 2 argv) ;ham-filepath
+											(nth 3 argv) ;spam-filepath
+											(nthcdr 4 argv) ;filepath-lst
+											)
+			   (print "learned!"))
+			  ((string= (car argv) "score")
+			   (print (cl-spam-detector:single-scoring (nth 1 argv) ;ham-filepath
+												  (nth 2 argv) ;spam-filepath
+												  (nth 3 argv) ;filepath
+												  )))
+			  ((string= (car argv) "multi-score")
+			   (let ((size (length (nthcdr 3 argv)))
+					 (cnt 1))
+				 (loop for score in (cl-spam-detector:multi-scoring (nth 1 argv) ;ham-filepath
+																 (nth 2 argv) ;spam-filepath
+																 (nthcdr 3 argv) ;filepath-lst
+																 )
+					  for fp in (nthcdr 3 argv)
+					do (progn
+						 (format t
+							   "[ ~A/~A ] filepath:~A score:~A~%"
+							   cnt
+							   size
+							   fp
+							   score)
+						 (incf cnt)))))
+			  ((string= (car argv) "help")
+			   (print help-msg))
+			  (t (error (format nil "Command Not Found (~A)" (car argv))))))
+	(error (e)
+	  (format *standard-output* "~&Error: ~A~%" e)
+	  (uiop:quit -1))))
+;;; vim: set ft=lisp lisp:
